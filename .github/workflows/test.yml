@@ -54,6 +54,24 @@ jobs:
       - name: Cargo test (no color)
         run: cargo test --features "no-color"
 
+  check_example:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run example
+        run: cargo run --example trace
+
+      - name: Run example (no color)
+        run: cargo run --example trace --features "no-color"
+
   validate_formatting:
     runs-on: ubuntu-latest
 
