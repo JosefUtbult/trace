@@ -1,5 +1,9 @@
 #![no_std]
 
+//! Simple Rust trace implementation intended for `no_std` targets. Creates a
+//! `TraceHandler` trait that can be used to setup a global trace handler. This
+//! handler is then used by various trace macros.
+
 mod tests;
 
 pub use fixed_string::FixedString;

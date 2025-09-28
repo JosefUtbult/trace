@@ -1,7 +1,7 @@
 use trace::{
-    TraceHandler, trace, trace_debug, trace_debug_once, trace_error, trace_error_once, trace_info,
-    trace_info_once, trace_once, trace_panic, trace_setup, trace_warning, trace_warning_once,
-    traceln, traceln_once,
+    FixedString, TraceHandler, trace, trace_debug, trace_debug_once, trace_error, trace_error_once,
+    trace_info, trace_info_once, trace_once, trace_panic, trace_setup, trace_warning,
+    trace_warning_once, trace_write, traceln, traceln_once,
 };
 
 struct MyTraceHandler {}
@@ -13,8 +13,15 @@ impl TraceHandler for MyTraceHandler {
 }
 
 fn main() {
+    // Setup a new trace handler
     trace_setup(&MyTraceHandler {});
 
+    // Direct access to trace function. Allows for any size of fixed strings
+    let message =
+        FixedString::<100>::new_with("Raw access to the underlying trace function\n").unwrap();
+    trace_write(&message);
+
+    // Macro formatting
     trace!("I am a {} trace\n", "normal");
     traceln!("I am a {} trace", "normal newline");
     trace_debug!("I am a {} trace", "debug");
@@ -23,6 +30,7 @@ fn main() {
     trace_error!("I am a {} trace", "error");
     trace_panic!("I am a {} trace", "panic");
 
+    // One time tracing
     for _ in 0..2 {
         trace_once!("I am a {} trace\n", "normal once");
         traceln_once!("I am a {} trace", "normal newline once");
