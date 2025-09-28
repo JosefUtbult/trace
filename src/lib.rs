@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //! Simple Rust trace implementation intended for `no_std` targets. Creates a
 //! `TraceHandler` trait that can be used to setup a global trace handler. This
@@ -16,7 +16,7 @@ use core::{
 
 use critical_section::{Mutex, with as critical};
 
-#[cfg(all(test, not(feature = "no-std-during-tests")))]
+#[cfg(feature = "std")]
 extern crate std;
 
 /// A TraceHandler is any entity setup to handle tracing. This handler will be used in a static
@@ -108,7 +108,7 @@ pub fn trace_write_panic(msg: &dyn FixedStringRef) {
 /// Helper macro to simplify testing. Calls `std::print` during testing if the trace handler isn't
 /// set up. Allows for testing code that uses trace functionality without having to setup the trace
 /// handler at each test
-#[cfg(not(feature = "no-std-during-tests"))]
+#[cfg(feature = "std")]
 #[macro_export]
 macro_rules! call_trace_write {
     ($message:expr) => {
@@ -129,7 +129,7 @@ macro_rules! call_trace_write {
 /// Helper macro to simplify testing. If the `no-std-during-tests` feature is enabled, this version
 /// of the macro doesn't try to use `std::print` during testing. The test must in this case setup
 /// the trace handler manually.
-#[cfg(feature = "no-std-during-tests")]
+#[cfg(not(feature = "std"))]
 #[macro_export]
 macro_rules! call_trace_write {
     ($message:expr) => {
@@ -140,7 +140,7 @@ macro_rules! call_trace_write {
 /// Helper macro to simplify testing. Calls `std::print` during testing if the trace handler isn't
 /// set up. Allows for testing code that uses trace functionality without having to setup the trace
 /// handler at each test
-#[cfg(not(feature = "no-std-during-tests"))]
+#[cfg(feature = "std")]
 #[macro_export]
 macro_rules! call_trace_write_panic {
     ($message:expr) => {
@@ -161,7 +161,7 @@ macro_rules! call_trace_write_panic {
 /// Helper macro to simplify testing. If the `no-std-during-tests` feature is enabled, this version
 /// of the macro doesn't try to use `std::print` during testing. The test must in this case setup
 /// the trace handler manually.
-#[cfg(feature = "no-std-during-tests")]
+#[cfg(not(feature = "std"))]
 #[macro_export]
 macro_rules! call_trace_write_panic {
     ($message:expr) => {

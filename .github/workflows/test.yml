@@ -25,10 +25,10 @@ jobs:
         run: rustup target add thumbv7em-none-eabihf
 
       - name: Build std
-        run: cargo build
+        run: cargo build --features "std"
 
       - name: Build std (no color)
-        run: cargo build --features "no-color"
+        run: cargo build --features "std no-color"
 
       - name: Build no_std
         run: cargo build --target thumbv7em-none-eabihf
@@ -49,10 +49,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cargo test
-        run: cargo test
+        run: cargo test --features "std"
 
       - name: Cargo test (no color)
-        run: cargo test --features "no-color"
+        run: cargo test --features "std no-color"
 
   check_example:
     runs-on: ubuntu-latest
@@ -67,10 +67,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Run example
-        run: cargo run --example trace
+        run: cargo run --example trace --features "std"
 
       - name: Run example (no color)
-        run: cargo run --example trace --features "no-color"
+        run: cargo run --example trace --features "std no-color"
 
   validate_formatting:
     runs-on: ubuntu-latest
