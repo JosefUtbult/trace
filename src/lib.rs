@@ -6,8 +6,7 @@
 
 mod tests;
 
-pub use fixed_string::FixedString;
-use fixed_string::FixedStringRef;
+pub use fixed_string::{FixedString, FixedStringRef};
 
 use core::{
     cell::RefCell,
@@ -16,6 +15,9 @@ use core::{
 };
 
 use critical_section::{Mutex, with as critical};
+
+#[cfg(all(test, not(feature = "no-std-during-tests")))]
+extern crate std;
 
 /// A TraceHandler is any entity setup to handle tracing. This handler will be used in a static
 /// context, for access from any part of the system
@@ -88,6 +90,11 @@ pub fn trace_cleanup() {
     TRACE_HANDLER.cleanup();
 }
 
+/// Check if the trace handler has been initialized
+pub fn trace_is_some() -> bool {
+    TRACE_HANDLER.is_some()
+}
+
 /// Write a message string to the trace handler
 pub fn trace_write(msg: &dyn FixedStringRef) {
     TRACE_HANDLER.write(msg);
@@ -96,6 +103,70 @@ pub fn trace_write(msg: &dyn FixedStringRef) {
 /// Write a panic message string to the trace handler
 pub fn trace_write_panic(msg: &dyn FixedStringRef) {
     TRACE_HANDLER.write_panic(msg);
+}
+
+/// Helper macro to simplify testing. Calls `std::print` during testing if the trace handler isn't
+/// set up. Allows for testing code that uses trace functionality without having to setup the trace
+/// handler at each test
+#[cfg(not(feature = "no-std-during-tests"))]
+#[macro_export]
+macro_rules! call_trace_write {
+    ($message:expr) => {
+        #[cfg(test)]
+        {
+            if $crate::trace_is_some() {
+                $crate::trace_write(&$message);
+            } else {
+                extern crate std;
+                std::print!("{}", $message);
+            }
+        }
+        #[cfg(not(test))]
+        $crate::trace_write(&$message);
+    };
+}
+
+/// Helper macro to simplify testing. If the `no-std-during-tests` feature is enabled, this version
+/// of the macro doesn't try to use `std::print` during testing. The test must in this case setup
+/// the trace handler manually.
+#[cfg(feature = "no-std-during-tests")]
+#[macro_export]
+macro_rules! call_trace_write {
+    ($message:expr) => {
+        $crate::trace_write(&$message);
+    };
+}
+
+/// Helper macro to simplify testing. Calls `std::print` during testing if the trace handler isn't
+/// set up. Allows for testing code that uses trace functionality without having to setup the trace
+/// handler at each test
+#[cfg(not(feature = "no-std-during-tests"))]
+#[macro_export]
+macro_rules! call_trace_write_panic {
+    ($message:expr) => {
+        #[cfg(test)]
+        {
+            if $crate::trace_is_some() {
+                $crate::trace_write_panic(&$message);
+            } else {
+                extern crate std;
+                std::print!("{}", $message);
+            }
+        }
+        #[cfg(not(test))]
+        $crate::trace_write_panic(&$message);
+    };
+}
+
+/// Helper macro to simplify testing. If the `no-std-during-tests` feature is enabled, this version
+/// of the macro doesn't try to use `std::print` during testing. The test must in this case setup
+/// the trace handler manually.
+#[cfg(feature = "no-std-during-tests")]
+#[macro_export]
+macro_rules! call_trace_write_panic {
+    ($message:expr) => {
+        $crate::trace_write_panic(&$message);
+    };
 }
 
 /// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
@@ -109,7 +180,7 @@ macro_rules! trace {
                 format_args!($($arg)*)
             ).unwrap();
 
-            $crate::trace_write(&formatted);
+            $crate::call_trace_write!(formatted);
         }
     };
 }
@@ -124,7 +195,7 @@ macro_rules! trace_once {
             use core::sync::atomic::{AtomicBool, Ordering::SeqCst, Ordering::Relaxed};
             static HAS_RUN: AtomicBool = AtomicBool::new(false);
             if HAS_RUN.compare_exchange(false, true, SeqCst, Relaxed).is_ok() {
-                crate::trace!($($arg)*);
+                $crate::trace!($($arg)*);
             }
         }
     };
@@ -132,33 +203,40 @@ macro_rules! trace_once {
 
 /// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
 /// string is to long
+#[cfg(not(feature = "no-color"))]
 #[macro_export]
 macro_rules! traceln {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            #[cfg(not(feature = "no-color"))]
-            {
-                let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "\x1b[0m{}\r\n",
-                        format_args!($($arg)*)
-                    )
-                ).unwrap();
+            let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "\x1b[0m{}\r\n",
+                    format_args!($($arg)*)
+                )
+            ).unwrap();
 
-                $crate::trace_write(&formatted);
-            }
-            #[cfg(feature = "no-color")]
-            {
-                let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "{}\r\n",
-                        format_args!($($arg)*)
-                    )
-                ).unwrap();
+            $crate::call_trace_write!(formatted);
+        }
+    };
+}
 
-                $crate::trace_write(&formatted);
-            }
+/// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
+/// string is to long
+#[cfg(feature = "no-color")]
+#[macro_export]
+macro_rules! traceln {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        {
+            let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "{}\r\n",
+                    format_args!($($arg)*)
+                )
+            ).unwrap();
+
+            $crate::call_trace_write!(formatted);
         }
     };
 }
@@ -173,7 +251,7 @@ macro_rules! traceln_once {
             use core::sync::atomic::{AtomicBool, Ordering::SeqCst, Ordering::Relaxed};
             static HAS_RUN: AtomicBool = AtomicBool::new(false);
             if HAS_RUN.compare_exchange(false, true, SeqCst, Relaxed).is_ok() {
-                crate::traceln!($($arg)*);
+                $crate::traceln!($($arg)*);
             }
         }
     };
@@ -181,33 +259,38 @@ macro_rules! traceln_once {
 
 /// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
 /// string is to long
+#[cfg(not(feature = "no-color"))]
 #[macro_export]
 macro_rules! trace_debug {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            #[cfg(not(feature = "no-color"))]
-            {
-                let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "\x1b[35mDEBUG: {}\x1b[0m\r\n",
-                        format_args!($($arg)*)
-                    )
-                ).unwrap();
+            let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "\x1b[35mDEBUG: {}\x1b[0m\r\n",
+                    format_args!($($arg)*)
+                )
+            ).unwrap();
+            $crate::call_trace_write!(formatted);
+        }
+    };
+}
 
-                $crate::trace_write(&formatted);
-            }
-            #[cfg(feature = "no-color")]
-            {
-                let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "DEBUG: {}\r\n",
-                        format_args!($($arg)*)
-                    )
-                ).unwrap();
-
-                $crate::trace_write(&formatted);
-            }
+/// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
+/// string is to long
+#[cfg(feature = "no-color")]
+#[macro_export]
+macro_rules! trace_debug {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        {
+            let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "DEBUG: {}\r\n",
+                    format_args!($($arg)*)
+                )
+            ).unwrap();
+            $crate::call_trace_write!(formatted);
         }
     };
 }
@@ -222,7 +305,7 @@ macro_rules! trace_debug_once {
             use core::sync::atomic::{AtomicBool, Ordering::SeqCst, Ordering::Relaxed};
             static HAS_RUN: AtomicBool = AtomicBool::new(false);
             if HAS_RUN.compare_exchange(false, true, SeqCst, Relaxed).is_ok() {
-                crate::trace_debug!($($arg)*);
+                $crate::trace_debug!($($arg)*);
             }
         }
     };
@@ -230,33 +313,40 @@ macro_rules! trace_debug_once {
 
 /// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
 /// string is to long
+#[cfg(not(feature = "no-color"))]
 #[macro_export]
 macro_rules! trace_info {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            #[cfg(not(feature = "no-color"))]
-            {
-                let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "\x1b[32mINFO: {}\x1b[0m\r\n",
-                        format_args!($($arg)*)
-                    )
-                ).unwrap();
+            let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "\x1b[32mINFO: {}\x1b[0m\r\n",
+                    format_args!($($arg)*)
+                )
+            ).unwrap();
 
-                $crate::trace_write(&formatted);
-            }
-            #[cfg(feature = "no-color")]
-            {
-                let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "INFO: {}\r\n",
-                        format_args!($($arg)*)
-                    )
-                ).unwrap();
+            $crate::call_trace_write!(formatted);
+        }
+    };
+}
 
-                $crate::trace_write(&formatted);
-            }
+/// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
+/// string is to long
+#[cfg(feature = "no-color")]
+#[macro_export]
+macro_rules! trace_info {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        {
+            let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "INFO: {}\r\n",
+                    format_args!($($arg)*)
+                )
+            ).unwrap();
+
+            $crate::call_trace_write!(formatted);
         }
     };
 }
@@ -271,7 +361,7 @@ macro_rules! trace_info_once {
             use core::sync::atomic::{AtomicBool, Ordering::SeqCst, Ordering::Relaxed};
             static HAS_RUN: AtomicBool = AtomicBool::new(false);
             if HAS_RUN.compare_exchange(false, true, SeqCst, Relaxed).is_ok() {
-                crate::trace_info!($($arg)*);
+                $crate::trace_info!($($arg)*);
             }
         }
     };
@@ -279,33 +369,40 @@ macro_rules! trace_info_once {
 
 /// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
 /// string is to long
+#[cfg(not(feature = "no-color"))]
 #[macro_export]
 macro_rules! trace_warning {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            #[cfg(not(feature = "no-color"))]
-            {
-                let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "\x1b[33mWARNING: {}\x1b[0m\r\n",
-                        format_args!($($arg)*)
-                    )
-                ).unwrap();
+            let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "\x1b[33mWARNING: {}\x1b[0m\r\n",
+                    format_args!($($arg)*)
+                )
+            ).unwrap();
 
-                $crate::trace_write(&formatted);
-            }
-            #[cfg(feature = "no-color")]
-            {
-                let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "WARNING: {}\r\n",
-                        format_args!($($arg)*)
-                    )
-                ).unwrap();
+            $crate::call_trace_write!(formatted);
+        }
+    };
+}
 
-                $crate::trace_write(&formatted);
-            }
+/// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
+/// string is to long
+#[cfg(feature = "no-color")]
+#[macro_export]
+macro_rules! trace_warning {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        {
+            let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "WARNING: {}\r\n",
+                    format_args!($($arg)*)
+                )
+            ).unwrap();
+
+            $crate::call_trace_write!(formatted);
         }
     };
 }
@@ -320,7 +417,7 @@ macro_rules! trace_warning_once {
             use core::sync::atomic::{AtomicBool, Ordering::SeqCst, Ordering::Relaxed};
             static HAS_RUN: AtomicBool = AtomicBool::new(false);
             if HAS_RUN.compare_exchange(false, true, SeqCst, Relaxed).is_ok() {
-                crate::trace_warning!($($arg)*);
+                $crate::trace_warning!($($arg)*);
             }
         }
     };
@@ -329,32 +426,39 @@ macro_rules! trace_warning_once {
 /// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
 /// string is to long
 #[macro_export]
+#[cfg(not(feature = "no-color"))]
 macro_rules! trace_error {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            #[cfg(not(feature = "no-color"))]
-            {
-                let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "\x1b[31mERROR: {}\x1b[0m\r\n",
-                        format_args!($($arg)*)
-                    )
-                ).unwrap();
+            let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "\x1b[31mERROR: {}\x1b[0m\r\n",
+                    format_args!($($arg)*)
+                )
+            ).unwrap();
 
-                $crate::trace_write(&formatted);
-            }
-            #[cfg(feature = "no-color")]
-            {
-                let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "ERROR: {}\r\n",
-                        format_args!($($arg)*)
-                    )
-                ).unwrap();
+            $crate::call_trace_write!(formatted);
+        }
+    };
+}
 
-                $crate::trace_write(&formatted);
-            }
+/// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
+/// string is to long
+#[macro_export]
+#[cfg(feature = "no-color")]
+macro_rules! trace_error {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        {
+            let formatted = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "ERROR: {}\r\n",
+                    format_args!($($arg)*)
+                )
+            ).unwrap();
+
+            $crate::call_trace_write!(formatted);
         }
     };
 }
@@ -369,7 +473,7 @@ macro_rules! trace_error_once {
             use core::sync::atomic::{AtomicBool, Ordering::SeqCst, Ordering::Relaxed};
             static HAS_RUN: AtomicBool = AtomicBool::new(false);
             if HAS_RUN.compare_exchange(false, true, SeqCst, Relaxed).is_ok() {
-                crate::trace_error!($($arg)*);
+                $crate::trace_error!($($arg)*);
             }
         }
     };
@@ -377,60 +481,67 @@ macro_rules! trace_error_once {
 
 /// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
 /// string is to long
+#[cfg(not(feature = "no-color"))]
 #[macro_export]
 macro_rules! trace_panic {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            #[cfg(not(feature = "no-color"))]
-            {
-                let res = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "\x1b[31mPANIC: {}\x1b[0m\r\n",
-                        format_args!($($arg)*)
-                    )
-                );
-                match res {
-                    Ok(res) => {
-                        $crate::trace_write_panic(&res);
-                    },
-                    Err(err) => {
-                        let res = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                            format_args!("\x1b[31mPANIC: Format error {:?}\x1b[0m\r\n", err)
-                        );
+            let res = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "\x1b[31mPANIC: {}\x1b[0m\r\n",
+                    format_args!($($arg)*)
+                )
+            );
+            match res {
+                Ok(res) => {
+                    $crate::call_trace_write_panic!(res);
+                },
+                Err(err) => {
+                    let res = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                        format_args!("\x1b[31mPANIC: Format error {:?}\x1b[0m\r\n", err)
+                    );
 
-                        match res {
-                            Ok(res) => {
-                                $crate::trace_write_panic(&res);
-                            },
-                            Err(_) => {}
-                        }
+                    match res {
+                        Ok(res) => {
+                            $crate::call_trace_write_panic!(res);
+                        },
+                        Err(_) => {}
                     }
                 }
             }
-            #[cfg(feature = "no-color")]
-            {
-                let res = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                    format_args!(
-                        "PANIC: {}\r\n",
-                        format_args!($($arg)*)
-                    )
-                );
-                match res {
-                    Ok(res) => {
-                        $crate::trace_write_panic(&res);
-                    },
-                    Err(err) => {
-                        let res = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
-                            format_args!("PANIC: Format error {:?}\r\n", err)
-                        );
+        }
+    };
+}
 
-                        match res {
-                            Ok(res) => {
-                                $crate::trace_write_panic(&res);
-                            },
-                            Err(_) => {}
-                        }
+/// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
+/// string is to long
+#[cfg(feature = "no-color")]
+#[macro_export]
+macro_rules! trace_panic {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        {
+            let res = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                format_args!(
+                    "PANIC: {}\r\n",
+                    format_args!($($arg)*)
+                )
+            );
+            match res {
+                Ok(res) => {
+                    $crate::call_trace_write_panic!(res);
+                },
+                Err(err) => {
+                    let res = $crate::FixedString::<{$crate::TRACE_FORMAT_BUFFER_SIZE}>::format(
+                        format_args!("PANIC: Format error {:?}\r\n", err)
+                    );
+
+                    match res {
+                        Ok(res) => {
+                            $crate::call_trace_write_panic!(res);
+                        },
+                        Err(_) => {}
                     }
                 }
             }

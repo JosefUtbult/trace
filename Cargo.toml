@@ -5,6 +5,7 @@ edition = "2024"
 
 [features]
 no-color = []
+no-std-during-tests = []
 
 [dependencies]
 critical-section = { version = "1.2.0"}
