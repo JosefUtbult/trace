@@ -1,0 +1,15 @@
+[package]
+name = "trace"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+no-color = []
+
+[dependencies]
+critical-section = { version = "1.2.0"}
+fixed_string = { path = "lib/fixed_string" }
+
+# Critical section works a bit oddly, as the std feature is needed
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+critical-section = { version = "1.2.0", features = ["std"] }
