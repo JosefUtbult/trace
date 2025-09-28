@@ -1,9 +1,16 @@
+#![no_std]
+
 mod tests;
 
 pub use fixed_string::FixedString;
 use fixed_string::FixedStringRef;
 
-use core::cell::RefCell;
+use core::{
+    cell::RefCell,
+    option::Option::{self, None, Some},
+    panic,
+};
+
 use critical_section::{Mutex, with as critical};
 
 /// A TraceHandler is any entity setup to handle tracing. This handler will be used in a static
