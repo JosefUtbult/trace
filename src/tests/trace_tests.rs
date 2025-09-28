@@ -1,3 +1,5 @@
+extern crate std;
+
 use core::cell::RefCell;
 
 use critical_section::{Mutex, with as critical};
