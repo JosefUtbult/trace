@@ -84,5 +84,8 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Add Rust Fmt
+        run: rustup component add rustfmt
+
       - name: Check formatting with rustfmt
         run: cargo fmt --all -- --check
