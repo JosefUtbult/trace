@@ -1,13 +1,13 @@
 use trace::{
-    FixedString, TraceHandler, trace, trace_debug, trace_debug_once, trace_error, trace_error_once,
-    trace_info, trace_info_once, trace_once, trace_panic, trace_setup, trace_warning,
-    trace_warning_once, trace_write, traceln, traceln_once,
+    TraceHandler, trace, trace_debug, trace_debug_once, trace_error, trace_error_once, trace_info,
+    trace_info_once, trace_once, trace_panic, trace_setup, trace_warning, trace_warning_once,
+    trace_write, traceln, traceln_once,
 };
 
 struct MyTraceHandler {}
 
 impl TraceHandler for MyTraceHandler {
-    fn trace_write(&self, msg: &dyn fixed_string::FixedStringRef) {
+    fn trace_write(&self, msg: &str) {
         std::print!("{}", msg);
     }
 }
@@ -17,9 +17,7 @@ fn main() {
     trace_setup(&MyTraceHandler {});
 
     // Direct access to trace function. Allows for any size of fixed strings
-    let message =
-        FixedString::<100>::new_with("Raw access to the underlying trace function\n").unwrap();
-    trace_write(&message);
+    trace_write(format_args!("Raw access to the underlying trace function\n"));
 
     // Macro formatting
     trace!("I am a {} trace\n", "normal");

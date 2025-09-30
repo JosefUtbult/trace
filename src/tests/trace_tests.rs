@@ -3,18 +3,17 @@ extern crate std;
 use core::cell::RefCell;
 
 use critical_section::{Mutex, with as critical};
-use fixed_string::{FixedString, FixedStringRef};
 
 use crate::{
-    TraceHandler, trace, trace_cleanup, trace_debug, trace_debug_once, trace_error,
-    trace_error_once, trace_info, trace_info_once, trace_once, trace_panic, trace_setup,
-    trace_warning, trace_warning_once, traceln, traceln_once,
+    TraceHandler, TraceString, format, trace, trace_cleanup, trace_debug, trace_debug_once,
+    trace_error, trace_error_once, trace_info, trace_info_once, trace_once, trace_panic,
+    trace_setup, trace_warning, trace_warning_once, traceln, traceln_once,
 };
 
-type TraceBuffer = Mutex<RefCell<FixedString<256>>>;
+type TraceBuffer = Mutex<RefCell<TraceString>>;
 
 const fn get_trace_buffer() -> TraceBuffer {
-    Mutex::new(RefCell::new(FixedString::new()))
+    Mutex::new(RefCell::new(TraceString::new()))
 }
 
 struct TestTraceHandler {
@@ -28,26 +27,23 @@ impl TestTraceHandler {
         }
     }
 
-    fn get_result(&self) -> FixedString<256> {
+    fn get_result(&self) -> TraceString {
         critical(|cs| self.buffer.borrow(cs).borrow().clone())
     }
 
     fn reset(&self) {
-        let res = critical(|cs| {
-            self.buffer.borrow(cs).borrow_mut().clear();
-            self.buffer.borrow(cs).borrow().clone()
-        });
-
-        assert_eq!(res.as_str(), "");
+        critical(|cs| *self.buffer.borrow(cs).borrow_mut() = TraceString::new())
     }
 }
 
 impl TraceHandler for TestTraceHandler {
-    fn trace_write(&self, msg: &dyn FixedStringRef) {
-        std::println!("Got msg {}", msg.as_str());
+    fn trace_write(&self, msg: &str) {
+        std::println!("Got msg {}", msg);
 
-        // Don't panic in here
-        let _ = critical(|cs| self.buffer.borrow(cs).borrow_mut().concatinate(msg));
+        let _ = critical(|cs| {
+            let mut current_ref = self.buffer.borrow(cs).borrow_mut();
+            *current_ref = format(format_args!("{}{}", current_ref.to_string(), msg));
+        });
     }
 }
 
@@ -120,7 +116,7 @@ fn trace_string() {
 
         trace!("{}", STRING);
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING, res.as_str());
+        assert_eq!(STRING, res.to_string());
         trace_cleanup();
     })
 }
@@ -135,7 +131,7 @@ fn trace_newline() {
 
         traceln!("{}", STRING);
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_NEWLINE, res.as_str());
+        assert_eq!(STRING_NEWLINE, res.to_string());
         trace_cleanup();
     })
 }
@@ -150,7 +146,7 @@ fn trace_debug() {
 
         trace_debug!("{}", STRING);
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_DEBUG, res.as_str());
+        assert_eq!(STRING_DEBUG, res.to_string());
         trace_cleanup();
     })
 }
@@ -165,7 +161,7 @@ fn trace_info() {
 
         trace_info!("{}", STRING);
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_INFO, res.as_str());
+        assert_eq!(STRING_INFO, res.to_string());
         trace_cleanup();
     })
 }
@@ -180,7 +176,7 @@ fn trace_warning() {
 
         trace_warning!("{}", STRING);
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_WARNING, res.as_str());
+        assert_eq!(STRING_WARNING, res.to_string());
         trace_cleanup();
     })
 }
@@ -195,7 +191,7 @@ fn trace_error() {
 
         trace_error!("{}", STRING);
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_ERROR, res.as_str());
+        assert_eq!(STRING_ERROR, res.to_string());
         trace_cleanup();
     })
 }
@@ -210,7 +206,7 @@ fn trace_panic() {
 
         trace_panic!("{}", STRING);
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_PANIC, res.as_str());
+        assert_eq!(STRING_PANIC, res.to_string());
         trace_cleanup();
     })
 }
@@ -240,7 +236,7 @@ fn trace_once_only_traces_once() {
         trace();
 
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING, res.as_str());
+        assert_eq!(STRING, res.to_string());
         trace_cleanup();
     })
 }
@@ -261,7 +257,7 @@ fn trace_ln_only_traces_once() {
         traceln();
 
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_NEWLINE, res.as_str());
+        assert_eq!(STRING_NEWLINE, res.to_string());
         trace_cleanup();
     })
 }
@@ -282,7 +278,7 @@ fn trace_debug_only_traces_once() {
         trace_debug();
 
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_DEBUG, res.as_str());
+        assert_eq!(STRING_DEBUG, res.to_string());
         trace_cleanup();
     })
 }
@@ -303,7 +299,7 @@ fn trace_info_only_traces_once() {
         trace_info();
 
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_INFO, res.as_str());
+        assert_eq!(STRING_INFO, res.to_string());
         trace_cleanup();
     })
 }
@@ -324,7 +320,7 @@ fn trace_warning_once_only_traces_once() {
         warn();
 
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_WARNING, res.as_str());
+        assert_eq!(STRING_WARNING, res.to_string());
         trace_cleanup();
     })
 }
@@ -345,7 +341,7 @@ fn trace_error_only_traces_once() {
         trace_info();
 
         let res = TRACE_HANDLER.get_result();
-        assert_eq!(STRING_ERROR, res.as_str());
+        assert_eq!(STRING_ERROR, res.to_string());
         trace_cleanup();
     })
 }
