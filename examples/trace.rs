@@ -1,7 +1,7 @@
 use trace::{
-    trace_format, trace, trace_debug, trace_debug_once, trace_error, trace_error_once,
+    on_trace, trace, trace_debug, trace_debug_once, trace_error, trace_error_once, trace_format,
     trace_info, trace_info_once, trace_once, trace_panic, trace_warning, trace_warning_once,
-    on_trace, traceln, traceln_once,
+    traceln, traceln_once,
 };
 
 on_trace!(|msg| {

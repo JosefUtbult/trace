@@ -2,9 +2,9 @@ use core::cell::RefCell;
 use critical_section::{Mutex, with as critical};
 
 use crate::{
-    TraceString, format, trace, trace_debug, trace_debug_once, trace_error, trace_error_once,
-    trace_info, trace_info_once, trace_once, trace_panic, trace_warning, trace_warning_once,
-    on_trace, traceln, traceln_once,
+    TraceString, format, on_trace, trace, trace_debug, trace_debug_once, trace_error,
+    trace_error_once, trace_info, trace_info_once, trace_once, trace_panic, trace_warning,
+    trace_warning_once, traceln, traceln_once,
 };
 
 static TEST_TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();

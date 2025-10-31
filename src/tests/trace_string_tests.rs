@@ -1,4 +1,4 @@
-use crate::{format, TraceString};
+use crate::{TraceString, format};
 
 #[test]
 fn create_string() {
