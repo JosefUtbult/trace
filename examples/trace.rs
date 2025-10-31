@@ -1,23 +1,18 @@
 use trace::{
-    TraceHandler, trace, trace_debug, trace_debug_once, trace_error, trace_error_once, trace_info,
-    trace_info_once, trace_once, trace_panic, trace_setup, trace_warning, trace_warning_once,
-    trace_write, traceln, traceln_once,
+    trace_format, trace, trace_debug, trace_debug_once, trace_error, trace_error_once,
+    trace_info, trace_info_once, trace_once, trace_panic, trace_warning, trace_warning_once,
+    on_trace, traceln, traceln_once,
 };
 
-struct MyTraceHandler {}
-
-impl TraceHandler for MyTraceHandler {
-    fn trace_write(&self, msg: &str) {
-        std::print!("{}", msg);
-    }
-}
+on_trace!(|msg| {
+    std::print!("{}", msg);
+});
 
 fn main() {
-    // Setup a new trace handler
-    trace_setup(&MyTraceHandler {});
-
     // Direct access to trace function. Allows for any size of fixed strings
-    trace_write(format_args!("Raw access to the underlying trace function\n"));
+    trace_format(format_args!(
+        "Raw access to the underlying trace function\n"
+    ));
 
     // Macro formatting
     trace!("I am a {} trace\n", "normal");

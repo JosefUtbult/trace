@@ -1,20 +1,16 @@
-extern crate std;
-
 use core::cell::RefCell;
-
 use critical_section::{Mutex, with as critical};
 
 use crate::{
-    TraceHandler, TraceString, format, trace, trace_cleanup, trace_debug, trace_debug_once,
-    trace_error, trace_error_once, trace_info, trace_info_once, trace_once, trace_panic,
-    trace_setup, trace_warning, trace_warning_once, traceln, traceln_once,
+    TraceString, format, trace, trace_debug, trace_debug_once, trace_error, trace_error_once,
+    trace_info, trace_info_once, trace_once, trace_panic, trace_warning, trace_warning_once,
+    on_trace, traceln, traceln_once,
 };
 
-type TraceBuffer = Mutex<RefCell<TraceString>>;
+static TEST_TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
+on_trace!(|msg| { TEST_TRACE_HANDLER.trace_write(msg) });
 
-const fn get_trace_buffer() -> TraceBuffer {
-    Mutex::new(RefCell::new(TraceString::new()))
-}
+type TraceBuffer = Mutex<RefCell<TraceString>>;
 
 struct TestTraceHandler {
     buffer: TraceBuffer,
@@ -23,20 +19,21 @@ struct TestTraceHandler {
 impl TestTraceHandler {
     const fn new() -> Self {
         Self {
-            buffer: get_trace_buffer(),
+            buffer: Mutex::new(RefCell::new(TraceString::new())),
         }
     }
 
     fn get_result(&self) -> TraceString {
-        critical(|cs| self.buffer.borrow(cs).borrow().clone())
+        let res = critical(|cs| self.buffer.borrow(cs).borrow().clone());
+        std::println!("get_result {}", res.to_string());
+        res
     }
 
     fn reset(&self) {
+        std::println!("reset");
         critical(|cs| *self.buffer.borrow(cs).borrow_mut() = TraceString::new())
     }
-}
 
-impl TraceHandler for TestTraceHandler {
     fn trace_write(&self, msg: &str) {
         std::println!("Got msg {}", msg);
 
@@ -48,11 +45,10 @@ impl TraceHandler for TestTraceHandler {
 }
 
 struct TraceTestGuard {}
-
 impl Drop for TraceTestGuard {
     fn drop(&mut self) {
         std::println!("Dropping guard");
-        trace_cleanup();
+        TEST_TRACE_HANDLER.reset();
     }
 }
 
@@ -95,44 +91,26 @@ const STRING_PANIC: &str = if cfg!(feature = "no-color") {
 };
 
 #[test]
-fn create_and_cleanup() {
-    critical(|_| {
-        let _ = TraceTestGuard {};
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
-        trace_cleanup();
-    })
-}
-
-#[test]
 fn trace_string() {
     critical(|_| {
         let _ = TraceTestGuard {};
-
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         trace!("{}", STRING);
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING, res.to_string());
-        trace_cleanup();
     })
 }
 
 #[test]
 fn trace_newline() {
     critical(|_| {
-        let _ = TraceTestGuard {};
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        // let _ = TraceTestGuard {};
+        TEST_TRACE_HANDLER.reset();
 
         traceln!("{}", STRING);
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_NEWLINE, res.to_string());
-        trace_cleanup();
     })
 }
 
@@ -140,14 +118,11 @@ fn trace_newline() {
 fn trace_debug() {
     critical(|_| {
         let _ = TraceTestGuard {};
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         trace_debug!("{}", STRING);
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_DEBUG, res.to_string());
-        trace_cleanup();
     })
 }
 
@@ -155,14 +130,11 @@ fn trace_debug() {
 fn trace_info() {
     critical(|_| {
         let _ = TraceTestGuard {};
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         trace_info!("{}", STRING);
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_INFO, res.to_string());
-        trace_cleanup();
     })
 }
 
@@ -170,14 +142,11 @@ fn trace_info() {
 fn trace_warning() {
     critical(|_| {
         let _ = TraceTestGuard {};
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         trace_warning!("{}", STRING);
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_WARNING, res.to_string());
-        trace_cleanup();
     })
 }
 
@@ -185,14 +154,11 @@ fn trace_warning() {
 fn trace_error() {
     critical(|_| {
         let _ = TraceTestGuard {};
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         trace_error!("{}", STRING);
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_ERROR, res.to_string());
-        trace_cleanup();
     })
 }
 
@@ -200,24 +166,11 @@ fn trace_error() {
 fn trace_panic() {
     critical(|_| {
         let _ = TraceTestGuard {};
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         trace_panic!("{}", STRING);
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_PANIC, res.to_string());
-        trace_cleanup();
-    })
-}
-
-#[test]
-fn trace_panic_shouldnt_panic() {
-    critical(|_| {
-        let _ = TraceTestGuard {};
-        trace_cleanup();
-        trace_panic!("I should not cause a panic");
-        trace_cleanup();
     })
 }
 
@@ -225,9 +178,7 @@ fn trace_panic_shouldnt_panic() {
 fn trace_once_only_traces_once() {
     critical(|_| {
         let _ = TraceTestGuard {};
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         fn trace() {
             trace_once!("{}", STRING);
@@ -235,9 +186,8 @@ fn trace_once_only_traces_once() {
         trace();
         trace();
 
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING, res.to_string());
-        trace_cleanup();
     })
 }
 
@@ -245,10 +195,7 @@ fn trace_once_only_traces_once() {
 fn trace_ln_only_traces_once() {
     critical(|_| {
         let _ = TraceTestGuard {};
-
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         fn traceln() {
             traceln_once!("{}", STRING);
@@ -256,9 +203,8 @@ fn trace_ln_only_traces_once() {
         traceln();
         traceln();
 
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_NEWLINE, res.to_string());
-        trace_cleanup();
     })
 }
 
@@ -266,10 +212,7 @@ fn trace_ln_only_traces_once() {
 fn trace_debug_only_traces_once() {
     critical(|_| {
         let _ = TraceTestGuard {};
-
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         fn trace_debug() {
             trace_debug_once!("{}", STRING);
@@ -277,9 +220,8 @@ fn trace_debug_only_traces_once() {
         trace_debug();
         trace_debug();
 
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_DEBUG, res.to_string());
-        trace_cleanup();
     })
 }
 
@@ -287,10 +229,7 @@ fn trace_debug_only_traces_once() {
 fn trace_info_only_traces_once() {
     critical(|_| {
         let _ = TraceTestGuard {};
-
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         fn trace_info() {
             trace_info_once!("{}", STRING);
@@ -298,9 +237,8 @@ fn trace_info_only_traces_once() {
         trace_info();
         trace_info();
 
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_INFO, res.to_string());
-        trace_cleanup();
     })
 }
 
@@ -308,10 +246,7 @@ fn trace_info_only_traces_once() {
 fn trace_warning_once_only_traces_once() {
     critical(|_| {
         let _ = TraceTestGuard {};
-
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         fn warn() {
             trace_warning_once!("{}", STRING);
@@ -319,9 +254,8 @@ fn trace_warning_once_only_traces_once() {
         warn();
         warn();
 
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_WARNING, res.to_string());
-        trace_cleanup();
     })
 }
 
@@ -329,10 +263,7 @@ fn trace_warning_once_only_traces_once() {
 fn trace_error_only_traces_once() {
     critical(|_| {
         let _ = TraceTestGuard {};
-
-        static TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
-        TRACE_HANDLER.reset();
-        trace_setup(&TRACE_HANDLER);
+        TEST_TRACE_HANDLER.reset();
 
         fn trace_info() {
             trace_error_once!("{}", STRING);
@@ -340,8 +271,7 @@ fn trace_error_only_traces_once() {
         trace_info();
         trace_info();
 
-        let res = TRACE_HANDLER.get_result();
+        let res = TEST_TRACE_HANDLER.get_result();
         assert_eq!(STRING_ERROR, res.to_string());
-        trace_cleanup();
     })
 }

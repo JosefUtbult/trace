@@ -5,7 +5,6 @@ edition = "2024"
 
 [features]
 no-color = []
-std = ["critical-section/std"]
 
-[dependencies]
-critical-section = { version = "1.2.0"}
+[dev-dependencies]
+critical-section = { version = "1.2.0", features = ["std"] }

@@ -1,5 +1,4 @@
-#[cfg(test)]
-mod trace_tests;
+extern crate std;
 
-#[cfg(test)]
+mod trace_tests;
 mod trace_string_tests;
