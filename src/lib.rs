@@ -1,28 +1,18 @@
 #![cfg_attr(not(test), no_std)]
 
 //! Simple Rust trace implementation intended for `no_std` targets. Creates a
-//! `TraceHandler` trait that can be used to setup a global trace handler. This
-//! handler is then used by various trace macros.
+//! trace_handler function attribute. After setting up a trace handler function,
+//! is then used by various trace macros.
 
 #[cfg(test)]
 mod tests;
+
+pub use trace_macro::trace_handler;
 
 use core::fmt::{self, Write};
 
 unsafe extern "Rust" {
     fn _on_trace(msg: &str);
-}
-
-/// Helper macro to allow a user to define an extern trace_write function
-/// with a closure
-#[macro_export]
-macro_rules! on_trace {
-    ($handler:expr) => {
-        #[unsafe(no_mangle)]
-        pub unsafe extern "Rust" fn _on_trace(msg: &str) {
-            $handler(msg)
-        }
-    };
 }
 
 pub(crate) const TRACE_FORMAT_BUFFER_SIZE: usize = 1024;

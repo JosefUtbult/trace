@@ -6,5 +6,8 @@ edition = "2024"
 [features]
 no-color = []
 
+[dependencies]
+trace-macro = { path = "./trace-macro" }
+
 [dev-dependencies]
 critical-section = { version = "1.2.0", features = ["std"] }
