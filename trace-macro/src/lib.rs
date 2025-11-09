@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, ItemFn};
+use syn::{ItemFn, parse_macro_input};
 
 /// Helper macro to allow a user to define an extern trace_write function
 /// with a closure
@@ -31,4 +31,3 @@ pub fn trace_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     expanded.into()
 }
-
