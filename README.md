@@ -1,23 +1,18 @@
 # Rust trace
 
 Simple Rust trace implementation intended for `no_std` targets. Creates a
-`TraceHandler` trait that can be used to setup a global trace handler. This
-handler is then used by various trace macros.
+`trace_handler` attribute that can be applied to a trace function taking in
+a string. This function is then used by various trace macros.
 
 **Example**
 
 Setup a trace handler:
 
 ```rust
-struct MyTraceHandler {}
-
-impl TraceHandler for MyTraceHandler {
-    fn trace_write(&self, msg: &dyn fixed_string::FixedStringRef) {
-        std::print!("{}", msg);
-    }
+#[trace_handler]
+fn on_trace(msg: &str) {
+    std::print!("{}", msg); // ... Or any other trace function
 }
-
-trace_setup(&MyTraceHandler {});
 ```
 
 Then, from different parts of the codebase, the different trace macros can be used.
