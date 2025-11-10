@@ -7,8 +7,6 @@
 #[cfg(test)]
 mod tests;
 
-mod weak_on_trace;
-
 pub use trace_macro::trace_handler;
 
 use core::fmt::{self, Write};
