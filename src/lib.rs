@@ -9,7 +9,30 @@ mod tests;
 
 pub use trace_macro::trace_handler;
 
-use core::fmt::{self, Write};
+use core::{arch::global_asm, fmt::{self, Write}};
+
+// Create a weak symbol for _on_trace. This should be updated to a #[weak] attribute
+// when that is part of the stable release
+#[cfg(target_arch = "arm")]
+global_asm!(
+    r#"
+    .thumb
+    .weak _on_trace
+    .type _on_trace, %function
+_on_trace:
+    bx lr
+"#
+);
+
+#[cfg(not(target_arch = "arm"))]
+global_asm!(
+    r#"
+    .weak _on_trace
+    .type _on_trace, @function
+_on_trace:
+    ret
+"#
+);
 
 unsafe extern "Rust" {
     fn _on_trace(msg: &str);
