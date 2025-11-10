@@ -32,10 +32,10 @@ pub fn trace_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
         })
         .collect();
 
-    if args.len() != 2 {
+    if args.len() != 3 {
         return syn::Error::new_spanned(
             &input.sig,
-            "#[trace_handler] functions must have exactly two arguments: (level: u8, msg: &str)",
+            "#[trace_handler] functions must have exactly two arguments: (level: u8, msg: *const u8, msg_len: usize)",
         )
         .to_compile_error()
         .into();
@@ -46,8 +46,8 @@ pub fn trace_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         // Export an extern entry point for the trace function
         #[unsafe(no_mangle)]
-        pub unsafe extern "Rust" fn _on_trace(level: #crate_path::Level, msg: &str) {
-            #name(level, msg);
+        pub unsafe extern "Rust" fn _on_trace(level: #crate_path::Level, msg: *const u8, msg_len: usize) {
+            #name(level, msg, msg_len);
         }
     };
 

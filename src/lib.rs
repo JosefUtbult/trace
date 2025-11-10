@@ -13,8 +13,8 @@ pub use trace_macro::trace_handler;
 
 use core::fmt::{self, Write};
 
-unsafe extern "Rust" {
-    fn _on_trace(level: Level, msg: &str);
+unsafe extern "C" {
+    fn _on_trace(level: Level, msg: *const u8, msg_len: usize);
 }
 
 #[repr(C)]
@@ -85,7 +85,9 @@ pub(crate) fn format(args: fmt::Arguments) -> TraceString {
 }
 
 pub fn trace_format(level: Level, args: fmt::Arguments) {
-    unsafe { _on_trace(level, format(args).to_string()) };
+    let formatted = format(args);
+    let string = formatted.to_string();
+    unsafe { _on_trace(level, string.as_ptr(), string.len()) };
 }
 
 /// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted

@@ -7,11 +7,12 @@ use trace::{
 // Trace handler function. This gets called by all trace macros after string
 // formatting
 #[trace_handler]
-fn on_trace(level: Level, msg: &str) {
+fn on_trace(level: Level, msg: *const u8, msg_len: usize) {
     // Filter out trace by level
     if level >= Level::Debug {
         // Trace the message in any way you want
-        std::print!("{}", msg);
+        let slice = unsafe { core::slice::from_raw_parts(msg, msg_len) };
+        std::print!("{}", str::from_utf8(slice).expect("Invalid UTF-8"));
     }
 }
 
