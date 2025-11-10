@@ -22,6 +22,9 @@ jobs:
       - name: Add target thumbv7em-none-eabihf
         run: rustup target add thumbv7em-none-eabihf
 
+      - name: Install arm-none-eabi-gcc
+        run: apt install -y arm-none-eabi-gcc
+
       - name: Build std
         run: cargo build
 
