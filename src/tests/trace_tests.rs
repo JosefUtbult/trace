@@ -10,9 +10,8 @@ use crate::{
 static TEST_TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
 
 #[trace_handler]
-fn on_trace(level: Level, msg: *const u8, msg_len: usize) {
-    let slice = unsafe { core::slice::from_raw_parts(msg, msg_len) };
-    TEST_TRACE_HANDLER.trace_write(level, str::from_utf8(slice).expect("Invalid UTF-8"));
+fn on_trace(level: Level, msg: &str) {
+    TEST_TRACE_HANDLER.trace_write(level, msg);
 }
 
 #[derive(Clone)]
