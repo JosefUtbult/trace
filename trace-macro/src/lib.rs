@@ -1,6 +1,9 @@
 use proc_macro::TokenStream;
+use proc_macro_crate::{FoundCrate, crate_name};
 use quote::quote;
 use syn::{ItemFn, parse_macro_input};
+
+const CRATE_NAME: &str = "trace";
 
 /// Helper macro to allow a user to define an extern trace_write function
 /// with a closure
@@ -9,11 +12,30 @@ pub fn trace_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
     let name = &input.sig.ident;
 
+    let crate_path = match crate_name(CRATE_NAME) {
+        Ok(FoundCrate::Itself) => quote!(crate),
+        Ok(FoundCrate::Name(name)) => {
+            let ident = syn::Ident::new(&name, proc_macro2::Span::call_site());
+            quote!(#ident)
+        }
+        Err(_) => panic!("Could not find the `{}` crate.", CRATE_NAME),
+    };
+
     // Validate the signature
-    if input.sig.inputs.len() != 1 {
+    let args: Vec<_> = input
+        .sig
+        .inputs
+        .iter()
+        .filter_map(|arg| match arg {
+            syn::FnArg::Typed(pat_type) => Some(pat_type),
+            syn::FnArg::Receiver(_) => None, // ignore `self`
+        })
+        .collect();
+
+    if args.len() != 2 {
         return syn::Error::new_spanned(
             &input.sig,
-            "#[trace_handler] functions must have exactly one argument: (&str)",
+            "#[trace_handler] functions must have exactly two arguments: (level: u8, msg: &str)",
         )
         .to_compile_error()
         .into();
@@ -24,8 +46,8 @@ pub fn trace_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         // Export an extern entry point for the trace function
         #[unsafe(no_mangle)]
-        pub unsafe extern "Rust" fn _on_trace(msg: &str) {
-            #name(msg);
+        pub unsafe extern "Rust" fn _on_trace(level: #crate_path::Level, msg: &str) {
+            #name(level, msg);
         }
     };
 

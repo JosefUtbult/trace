@@ -2,48 +2,68 @@ use core::cell::RefCell;
 use critical_section::{Mutex, with as critical};
 
 use crate::{
-    TraceString, format, trace, trace_debug, trace_debug_once, trace_error, trace_error_once,
-    trace_handler, trace_info, trace_info_once, trace_once, trace_panic, trace_warning,
-    trace_warning_once, traceln, traceln_once,
+    Level, TraceString, format, trace, trace_debug, trace_debug_once, trace_error,
+    trace_error_once, trace_handler, trace_info, trace_info_once, trace_once, trace_panic,
+    trace_warning, trace_warning_once, traceln, traceln_once,
 };
 
 static TEST_TRACE_HANDLER: TestTraceHandler = TestTraceHandler::new();
 
 #[trace_handler]
-fn on_trace(msg: &str) {
-    TEST_TRACE_HANDLER.trace_write(msg);
+fn on_trace(level: Level, msg: &str) {
+    TEST_TRACE_HANDLER.trace_write(level, msg);
 }
 
-type TraceBuffer = Mutex<RefCell<TraceString>>;
+#[derive(Clone)]
+struct TraceResult {
+    level: Level,
+    msg: TraceString,
+}
+
+type TraceBuffer = Mutex<RefCell<TraceResult>>;
 
 struct TestTraceHandler {
     buffer: TraceBuffer,
 }
 
+impl TraceResult {
+    const fn new() -> Self {
+        Self {
+            level: Level::Debug,
+            msg: TraceString::new(),
+        }
+    }
+}
+
 impl TestTraceHandler {
     const fn new() -> Self {
         Self {
-            buffer: Mutex::new(RefCell::new(TraceString::new())),
+            buffer: Mutex::new(RefCell::new(TraceResult::new())),
         }
     }
 
-    fn get_result(&self) -> TraceString {
+    fn get_result(&self) -> TraceResult {
         let res = critical(|cs| self.buffer.borrow(cs).borrow().clone());
-        std::println!("get_result {}", res.to_string());
+        std::println!(
+            "get_result level: {:?}, msg: {}",
+            res.level,
+            res.msg.to_string()
+        );
         res
     }
 
     fn reset(&self) {
         std::println!("reset");
-        critical(|cs| *self.buffer.borrow(cs).borrow_mut() = TraceString::new())
+        critical(|cs| *self.buffer.borrow(cs).borrow_mut() = TraceResult::new())
     }
 
-    fn trace_write(&self, msg: &str) {
+    fn trace_write(&self, level: Level, msg: &str) {
         std::println!("Got msg {}", msg);
 
         let _ = critical(|cs| {
             let mut current_ref = self.buffer.borrow(cs).borrow_mut();
-            *current_ref = format(format_args!("{}{}", current_ref.to_string(), msg));
+            current_ref.msg = format(format_args!("{}{}", current_ref.msg.to_string(), msg));
+            current_ref.level = level;
         });
     }
 }
@@ -102,7 +122,8 @@ fn trace_string() {
 
         trace!("{}", STRING);
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING, res.to_string());
+        assert_eq!(Level::Info, res.level);
+        assert_eq!(STRING, res.msg.to_string());
     })
 }
 
@@ -114,7 +135,8 @@ fn trace_newline() {
 
         traceln!("{}", STRING);
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_NEWLINE, res.to_string());
+        assert_eq!(Level::Info, res.level);
+        assert_eq!(STRING_NEWLINE, res.msg.to_string());
     })
 }
 
@@ -126,7 +148,8 @@ fn trace_debug() {
 
         trace_debug!("{}", STRING);
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_DEBUG, res.to_string());
+        assert_eq!(Level::Debug, res.level);
+        assert_eq!(STRING_DEBUG, res.msg.to_string());
     })
 }
 
@@ -138,7 +161,8 @@ fn trace_info() {
 
         trace_info!("{}", STRING);
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_INFO, res.to_string());
+        assert_eq!(Level::Info, res.level);
+        assert_eq!(STRING_INFO, res.msg.to_string());
     })
 }
 
@@ -150,7 +174,8 @@ fn trace_warning() {
 
         trace_warning!("{}", STRING);
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_WARNING, res.to_string());
+        assert_eq!(Level::Warning, res.level);
+        assert_eq!(STRING_WARNING, res.msg.to_string());
     })
 }
 
@@ -162,7 +187,8 @@ fn trace_error() {
 
         trace_error!("{}", STRING);
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_ERROR, res.to_string());
+        assert_eq!(Level::Error, res.level);
+        assert_eq!(STRING_ERROR, res.msg.to_string());
     })
 }
 
@@ -174,7 +200,8 @@ fn trace_panic() {
 
         trace_panic!("{}", STRING);
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_PANIC, res.to_string());
+        assert_eq!(Level::Error, res.level);
+        assert_eq!(STRING_PANIC, res.msg.to_string());
     })
 }
 
@@ -191,7 +218,7 @@ fn trace_once_only_traces_once() {
         trace();
 
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING, res.to_string());
+        assert_eq!(STRING, res.msg.to_string());
     })
 }
 
@@ -208,7 +235,7 @@ fn trace_ln_only_traces_once() {
         traceln();
 
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_NEWLINE, res.to_string());
+        assert_eq!(STRING_NEWLINE, res.msg.to_string());
     })
 }
 
@@ -225,7 +252,7 @@ fn trace_debug_only_traces_once() {
         trace_debug();
 
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_DEBUG, res.to_string());
+        assert_eq!(STRING_DEBUG, res.msg.to_string());
     })
 }
 
@@ -242,7 +269,7 @@ fn trace_info_only_traces_once() {
         trace_info();
 
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_INFO, res.to_string());
+        assert_eq!(STRING_INFO, res.msg.to_string());
     })
 }
 
@@ -259,7 +286,7 @@ fn trace_warning_once_only_traces_once() {
         warn();
 
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_WARNING, res.to_string());
+        assert_eq!(STRING_WARNING, res.msg.to_string());
     })
 }
 
@@ -276,6 +303,6 @@ fn trace_error_only_traces_once() {
         trace_info();
 
         let res = TEST_TRACE_HANDLER.get_result();
-        assert_eq!(STRING_ERROR, res.to_string());
+        assert_eq!(STRING_ERROR, res.msg.to_string());
     })
 }

@@ -1,5 +1,5 @@
 use trace::{
-    trace, trace_debug, trace_debug_once, trace_error, trace_error_once, trace_format,
+    Level, trace, trace_debug, trace_debug_once, trace_error, trace_error_once, trace_format,
     trace_handler, trace_info, trace_info_once, trace_once, trace_panic, trace_warning,
     trace_warning_once, traceln, traceln_once,
 };
@@ -7,15 +7,20 @@ use trace::{
 // Trace handler function. This gets called by all trace macros after string
 // formatting
 #[trace_handler]
-fn on_trace(msg: &str) {
-    std::print!("{}", msg);
+fn on_trace(level: Level, msg: &str) {
+    // Filter out trace by level
+    if level >= Level::Debug {
+        // Trace the message in any way you want
+        std::print!("{}", msg);
+    }
 }
 
 fn main() {
     // Direct access to trace function. Allows for any size of fixed strings
-    trace_format(format_args!(
-        "Raw access to the underlying trace function\n"
-    ));
+    trace_format(
+        trace::Level::Info,
+        format_args!("Raw access to the underlying trace function\n"),
+    );
 
     // Macro formatting
     trace!("I am a {} trace\n", "normal");

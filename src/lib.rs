@@ -9,7 +9,10 @@ mod tests;
 
 pub use trace_macro::trace_handler;
 
-use core::{arch::global_asm, fmt::{self, Write}};
+use core::{
+    arch::global_asm,
+    fmt::{self, Write},
+};
 
 // Create a weak symbol for _on_trace. This should be updated to a #[weak] attribute
 // when that is part of the stable release
@@ -35,7 +38,16 @@ _on_trace:
 );
 
 unsafe extern "Rust" {
-    fn _on_trace(msg: &str);
+    fn _on_trace(level: Level, msg: &str);
+}
+
+#[repr(C)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
+pub enum Level {
+    Debug,
+    Info,
+    Warning,
+    Error,
 }
 
 pub(crate) const TRACE_FORMAT_BUFFER_SIZE: usize = 1024;
@@ -96,8 +108,8 @@ pub(crate) fn format(args: fmt::Arguments) -> TraceString {
     res
 }
 
-pub fn trace_format(args: fmt::Arguments) {
-    unsafe { _on_trace(format(args).to_string()) };
+pub fn trace_format(level: Level, args: fmt::Arguments) {
+    unsafe { _on_trace(level, format(args).to_string()) };
 }
 
 /// Tracing macro for simplifying the usage of the trace functionality. Will panic if the formatted
@@ -107,7 +119,7 @@ macro_rules! trace {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!($($arg)*));
+            $crate::trace_format($crate::Level::Info, format_args!($($arg)*));
         }
     };
 }
@@ -136,7 +148,7 @@ macro_rules! traceln {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("\x1b[0m{}\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Info, format_args!("\x1b[0m{}\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -149,7 +161,7 @@ macro_rules! traceln {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("{}\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Info, format_args!("{}\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -178,7 +190,7 @@ macro_rules! trace_debug {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("\x1b[35mDEBUG: {}\x1b[0m\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Debug, format_args!("\x1b[35mDEBUG: {}\x1b[0m\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -191,7 +203,7 @@ macro_rules! trace_debug {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("DEBUG: {}\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Debug, format_args!("DEBUG: {}\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -220,7 +232,7 @@ macro_rules! trace_info {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("\x1b[32mINFO: {}\x1b[0m\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Info, format_args!("\x1b[32mINFO: {}\x1b[0m\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -233,7 +245,7 @@ macro_rules! trace_info {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("INFO: {}\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Info, format_args!("INFO: {}\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -262,7 +274,7 @@ macro_rules! trace_warning {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("\x1b[33mWARNING: {}\x1b[0m\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Warning, format_args!("\x1b[33mWARNING: {}\x1b[0m\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -275,7 +287,7 @@ macro_rules! trace_warning {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("WARNING: {}\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Warning, format_args!("WARNING: {}\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -304,7 +316,7 @@ macro_rules! trace_error {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("\x1b[31mERROR: {}\x1b[0m\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Error, format_args!("\x1b[31mERROR: {}\x1b[0m\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -317,7 +329,7 @@ macro_rules! trace_error {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("ERROR: {}\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Error, format_args!("ERROR: {}\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -346,7 +358,7 @@ macro_rules! trace_panic {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("\x1b[31mPANIC: {}\x1b[0m\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Error, format_args!("\x1b[31mPANIC: {}\x1b[0m\r\n", format_args!($($arg)*)));
         }
     };
 }
@@ -359,7 +371,7 @@ macro_rules! trace_panic {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            $crate::trace_format(format_args!("PANIC: {}\r\n", format_args!($($arg)*)));
+            $crate::trace_format($crate::Level::Error, format_args!("PANIC: {}\r\n", format_args!($($arg)*)));
         }
     };
 }
