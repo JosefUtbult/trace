@@ -46,7 +46,7 @@ pub fn trace_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         // Export an extern entry point for the trace function
         #[unsafe(no_mangle)]
-        pub unsafe extern "Rust" fn _on_trace(level: #crate_path::Level, msg: *const u8, msg_len: usize) {
+        pub unsafe extern "C" fn _on_trace(level: #crate_path::Level, msg: *const u8, msg_len: usize) {
             #name(level, msg, msg_len);
         }
     };
