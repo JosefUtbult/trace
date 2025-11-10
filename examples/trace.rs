@@ -9,7 +9,7 @@ use trace::{
 #[trace_handler]
 fn on_trace(level: Level, msg: &str) {
     // Filter out trace by level
-    if level >= Level::Debug {
+    if level > Level::Debug {
         // Trace the message in any way you want
         std::print!("{}", msg);
     }
