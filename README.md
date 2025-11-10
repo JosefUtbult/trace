@@ -1,8 +1,9 @@
 # Rust trace
 
 Simple Rust trace implementation intended for `no_std` targets. Creates a
-`trace_handler` attribute that can be applied to a trace function taking in
-a string. This function is then used by various trace macros.
+`trace_handler` attribute that can be applied to a trace function taking in a
+message level and a message string. This function is then used by various trace
+macros.
 
 **Example**
 
@@ -10,7 +11,7 @@ Setup a trace handler:
 
 ```rust
 #[trace_handler]
-fn on_trace(msg: &str) {
+fn on_trace(_level: trace::Level, msg: &str) {
     std::print!("{}", msg); // ... Or any other trace function
 }
 ```
