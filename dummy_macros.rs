@@ -1,11 +1,11 @@
-// These macros can be used if a library has a feature `trace` that includes the trace macros. If
-// this is disabled, dummy macros are generated. This presumes that std is enabled during tests.
+// These macros can be used if a library has a feature `use-trace` that includes the trace macros.
+// If this is disabled, dummy macros are generated. This presumes that std is enabled during tests.
 // If not, remove the std::print parts and just leave the macros empty
 
-#[cfg(feature = "trace")]
-pub use trace_dep::*; // Or whatever you call the trace dependency
+#[cfg(feature = "use-trace")]
+pub use trace::*;
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace {
     ($($arg:tt)*) => {
@@ -14,7 +14,7 @@ macro_rules! trace {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace_once {
     ($($arg:tt)*) => {
@@ -23,7 +23,7 @@ macro_rules! trace_once {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! traceln {
     ($($arg:tt)*) => {
@@ -32,7 +32,7 @@ macro_rules! traceln {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! traceln_once {
     ($($arg:tt)*) => {
@@ -41,7 +41,7 @@ macro_rules! traceln_once {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace_debug {
     ($($arg:tt)*) => {
@@ -50,7 +50,7 @@ macro_rules! trace_debug {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace_debug_once {
     ($($arg:tt)*) => {
@@ -59,7 +59,7 @@ macro_rules! trace_debug_once {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace_info {
     ($($arg:tt)*) => {
@@ -68,7 +68,7 @@ macro_rules! trace_info {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace_info_once {
     ($($arg:tt)*) => {
@@ -77,7 +77,7 @@ macro_rules! trace_info_once {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace_warning {
     ($($arg:tt)*) => {
@@ -86,7 +86,7 @@ macro_rules! trace_warning {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace_warning_once {
     ($($arg:tt)*) => {
@@ -95,7 +95,7 @@ macro_rules! trace_warning_once {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace_error {
     ($($arg:tt)*) => {
@@ -104,7 +104,7 @@ macro_rules! trace_error {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace_error_once {
     ($($arg:tt)*) => {
@@ -113,7 +113,7 @@ macro_rules! trace_error_once {
     };
 }
 
-#[cfg(not(feature = "trace"))]
+#[cfg(not(feature = "use-trace"))]
 #[macro_export]
 macro_rules! trace_panic {
     ($($arg:tt)*) => {
