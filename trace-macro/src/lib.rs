@@ -35,7 +35,7 @@ pub fn trace_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if args.len() != 2 {
         return syn::Error::new_spanned(
             &input.sig,
-            "#[trace_handler] functions must have exactly two arguments: (level: u8, msg: &str)",
+            "#[trace_handler] functions must have exactly two arguments: (level: Level, msg: &str)",
         )
         .to_compile_error()
         .into();
